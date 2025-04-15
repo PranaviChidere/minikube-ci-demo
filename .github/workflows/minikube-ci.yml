@@ -1,0 +1,32 @@
+name: CI for DNG App on Minikube
+
+on:
+  pull_request:
+
+jobs:
+  deploy-to-minikube:
+    runs-on: ubuntu-latest
+    name: Build and Deploy to Minikube
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start Minikube
+        uses: medyagh/setup-minikube@latest
+
+      - name: Verify Minikube
+        run: kubectl get pods -A
+
+      - name: Build Docker image inside Minikube
+        run: minikube image build -t local/dng:latest .
+
+      - name: Deploy to Minikube
+        run: |
+          kubectl apply -f deploy/k8s.yaml
+          kubectl wait --for=condition=ready pod -l app=dng --timeout=90s
+
+      - name: Test the service
+        run: |
+          minikube service list
+          curl $(minikube service dng-service --url || echo "Service not reachable")
